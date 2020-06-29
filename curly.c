@@ -493,6 +493,78 @@ curly_http_transaction_handle curly_http_post(const char* url, void* data, long 
     return transaction;
 }
 
+curly_http_transaction_handle curly_http_delete(const char* url, void* data, long size, const char* headers_json, void* cb)
+{
+    CURLcode easy_status = CURLE_OK;
+    CURLMcode status = CURLM_OK;
+    CURL *http_delete_handle;
+    curly_http_transaction* transaction = create_transaction(data, size, cb);
+    if (transaction == NULL) {
+        CURLY_LOG("Error: Failed to create curly transaction. The DELETE operation can not be performed");
+        return NULL;
+    }
+    
+    http_delete_handle = transaction->handle;
+    
+    CURLY_LOG("Starting http DELETE to %s", url);
+    
+    /* set options */
+    curl_easy_setopt(http_delete_handle, CURLOPT_URL, url);
+    
+    if(my_config.log_options != 0) {
+        curl_easy_setopt(http_delete_handle, CURLOPT_DEBUGFUNCTION, &debug_func);
+        curl_easy_setopt(http_delete_handle, CURLOPT_VERBOSE, 1L);
+    }
+    
+    if (my_config.do_not_verify_peer) {
+        curl_easy_setopt(http_delete_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+        CURLY_LOG("Warning: VERIFYPEER turned off");
+    } else {
+        if (my_config.certificate_path != NULL) {
+            easy_status = curl_easy_setopt(http_delete_handle, CURLOPT_CAINFO, my_config.certificate_path);
+            if (easy_status != CURLE_OK) {
+                CURLY_LOG("Error: Failed to add certificate bundle: %s. \nPeer Verification will not be enabled.", my_config.certificate_path);
+                curl_easy_setopt(http_delete_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+            }
+        }
+    }
+    
+    if (my_config.no_signal) {
+        easy_status = curl_easy_setopt(http_delete_handle, CURLOPT_NOSIGNAL, 1L);
+        if (easy_status != CURLE_OK) {
+            CURLY_LOG("Error: Failed to set CURLOPT_NOSIGNAL with error %d", easy_status);
+        }
+    }
+    
+    /* enable uploading */
+    curl_easy_setopt(http_delete_handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+    curl_easy_setopt(http_delete_handle, CURLOPT_INFILESIZE, size);
+    
+    /* we want to use our own read function */
+    curl_easy_setopt(http_delete_handle, CURLOPT_READFUNCTION, read_callback);
+    
+    /* pointer to pass to our read function */
+    curl_easy_setopt(http_delete_handle, CURLOPT_READDATA, transaction);
+    
+    /* Store our transaction pointer */
+    easy_status = curl_easy_setopt(http_delete_handle, CURLOPT_PRIVATE, (void*)transaction);
+    if (easy_status != CURLE_OK) {
+        CURLY_LOG("Failed setting private data.");
+    }
+    
+    add_custom_headers(http_delete_handle, transaction, headers_json);
+    
+    /* Add the easy handle to the multi handle */
+    status = curl_multi_add_handle(multi_handle, http_delete_handle);
+    if (status != CURLM_OK) {
+        CURLY_LOG("curl_multi_add_handle failed with error %d", status);
+        return NULL;
+    }
+    
+    signal_worker_thread();
+    return transaction;
+}
+
 /*
  * Internal worker thread handling. 
  * Only active if there are transfers in progress.

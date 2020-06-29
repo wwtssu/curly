@@ -143,6 +143,21 @@ curly_http_transaction_handle curly_http_put(const char* url, void* data, long s
  */
 curly_http_transaction_handle curly_http_post(const char* url, void* data, long size, const char* headers_json, void* cb);
 
+
+
+/**
+ * Perform http delete
+ * @param url               The complete url including http or https
+ * @param data              The data to send to the server
+ * @param size              Size of the data in bytes
+ * @param headers_json      List of optional headers as a json array for instance:
+ *                          [\"Accept: application/json\",\"Content-Type: application/json\"]
+ * @param cb                Optional callback function as defined by #on_http_request_completed
+ *
+ * @return                  Transaction handle as defined by #curly_http_transaction_handle
+ */
+curly_http_transaction_handle curly_http_delete(const char* url, void* data, long size, const char* headers_json, void* cb);
+
 #ifdef __cplusplus
 }
 #endif
